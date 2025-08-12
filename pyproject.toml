@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+
+name = "abcSphinx"
+dynamic = ["version"]
+description = "sphinx 用于渲染ABC代码的扩展库."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "sphinx", "myst-parser"
+]
+
+# 声明要包含的数据文件
+[tool.setuptools.package-data]
+abcSphinx = ["abc.css"]
+
+[tool.setuptools.dynamic]
+version = { attr = "abcSphinx.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["abcSphinx"]
+

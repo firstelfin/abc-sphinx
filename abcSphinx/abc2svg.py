@@ -113,8 +113,6 @@ class ABCDirective(Directive):
         images_dir.mkdir(parents=True, exist_ok=True)
         
         svg_path = images_dir / filename
-        # rel_path = f"/_static/_abc_images/{filename}"
-        # rel_path = Path("_abc_images") / filename
         
         # 检查是否已存在渲染结果
         if not svg_path.exists() or env.config.abc_force_rebuild:
@@ -181,9 +179,6 @@ class ABCDirective(Directive):
                 return [nodes.error(text=error_msg)]
         
         # 创建图像节点
-        # image_node = nodes.image(uri=str(rel_path))
-        
-        # image_node['classes'].append('abc-rendered')
 
         raw_html = (
             f'<div class="abc-container">\n'
@@ -200,14 +195,7 @@ class ABCDirective(Directive):
             caption = nodes.caption(text=self.arguments[0])
             figure_node = nodes.figure('', raw_node, caption)
             return [figure_node]
-        
-        # # 添加标题（如果有参数）
-        # if self.arguments:
-        #     caption = nodes.caption(text=self.arguments[0])
-        #     figure_node = nodes.figure('', image_node, caption)
-        #     return [figure_node]
-        print(raw_node)
-        # return [image_node]
+
         return [raw_node]
     
 

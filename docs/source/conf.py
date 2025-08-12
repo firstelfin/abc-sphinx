@@ -9,17 +9,26 @@
 import os
 import sys
 
-project = 'abc-sphinx'
+project = 'abcSphinx'
 copyright = '2025, elfin'
 author = 'elfin'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 sys.path.insert(0, os.path.abspath('../../'))
-sys.path.insert(0, os.path.abspath('../../../abc-sphinx/'))
 
 extensions = [
     'abcSphinx',
+    'myst_parser',
+]
+
+# 启用 colon_fence 扩展
+myst_enable_extensions = [
+    "colon_fence", 
+    "deflist",  # 定义列表
+    "dollarmath",  # 数学公式
+    "amsmath",  # 数学公式
+    # ... 其他需要的扩展，如 'deflist', 'tasklist' 等
 ]
 
 templates_path = ['_templates']
