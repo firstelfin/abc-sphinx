@@ -3,6 +3,22 @@ abc代码渲染扩展,适用于sphinx渲染乐谱代码
 
 ## 安装
 
+安装系统依赖:(Ubuntu)
+
+```shell
+sudo apt-get install abcm2ps
+```
+其他系统使用相应的安装工具安装[abcm2ps](https://github.com/lewdlime/abcm2ps)
+在`.readthedocs.yaml`文档中要添加以下内容：
+
+```yaml
+build:
+  apt_packages:
+    - abcm2ps
+```
+
+安装abcSphinx扩展:
+
 ```
 pip install abcSphinx
 ```
