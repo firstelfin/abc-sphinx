@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 
-name = "abcSphinx"
+name = "abcsphinx"
 dynamic = ["version"]
 description = "sphinx 用于渲染ABC代码的扩展库."
 readme = "README.md"

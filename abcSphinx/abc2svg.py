@@ -1,5 +1,6 @@
 import os
 import re
+import html
 import shutil
 import hashlib
 import tempfile
@@ -141,16 +142,45 @@ class ABCExtension:
         
         return svg_path
     
+    def _get_svg_url(self, svg_path: Path) -> str:
+        """生成正确的相对URL路径"""
+        # 获取相对于 _static 目录的路径
+        try:
+            # 方法1：RTD特定处理
+            if os.environ.get('READTHEDOCS', 'False') == 'True':
+                # RTD需要相对路径
+                rtd_version = os.environ.get('READTHEDOCS_VERSION', 'latest')
+                rtd_language = os.environ.get('READTHEDOCS_LANGUAGE', 'en')
+                
+                # 构建RTD上的绝对路径
+                # 注意：RTD的路径结构为 /{语言}/{版本}/_static/...
+                prefix = f"/{rtd_language}/{rtd_version}"
+                logger.info(f"RTD prefix: {prefix}")
+                return f"{prefix}/_static/_abc_images/{svg_path.name}"
+            # 方法2：本地环境
+            else:
+                logger.info(f"Not RTD: {svg_path}")
+                return str(svg_path)
+        except Exception as e:
+            logger.error(f"Path calculation error: {e}")
+            # 最终回退：只返回文件名
+            return f"/_static/{svg_path.name}"
+
     def render_rst(self, abc_content: str, options: dict | None = None, caption: str | None  = None) -> list:
         """RST专用渲染方法"""
         try:
             svg_path = self._render_abc_to_svg(abc_content, options)
+            svg_url = self._get_svg_url(svg_path=svg_path)
+            safe_alt = html.escape(f"ABC notation - {svg_path.stem}")
             
             # 创建HTML
             raw_html = (
-                f'<div class="abc-container">\n'
-                f'  <img src="{str(svg_path)}" '
-                f'class="abc-rendered" alt="abc music - {svg_path.name}" />\n'
+                f'<div class="abc-container" style="display: block; width: 100%; margin: 1.5rem 0; text-align: center;">'
+                f'<img src="{svg_url}" class="abc-rendered" '
+                f'alt="{safe_alt}" '
+                f'style="max-width: 100%; height: auto; display: inline-block; '
+                f'border: 1px solid #ddd; padding: 5px; background: white; '
+                f'margin: 0 auto;" />'
                 f'</div>'
             )
 
@@ -167,20 +197,49 @@ class ABCExtension:
             
         except Exception as e:
             error_msg = f"ABC rendering error: {str(e)}"
-            logger.error(error_msg)
-            return [nodes.error(text=error_msg)]
+            logger.error(error_msg, exc_info=True)  # ✅ 添加exc_info=True获取完整堆栈
+            # ✅ 修复3: 返回可见的错误占位符
+            error_html = (
+                f'<div class="abc-error" style="border: 2px dashed #dc3232; padding: 1rem; '
+                f'margin: 1rem 0; background: #fff8f8; color: #dc3232;">'
+                f'<p>❌ ABC Rendering Error: {html.escape(str(e))}</p>'
+                f'<pre style="background: #f8f8f8; padding: 0.5rem; font-family: monospace; '
+                f'font-size: 0.9em; max-height: 100px; overflow: auto; margin-top: 0.5rem;">'
+                f'{html.escape(abc_content[:100])}...</pre>'
+                f'</div>'
+            )
+            return [nodes.raw('', error_html, format='html')]
     
     def render_md(self, abc_content: str) -> str:
         """Markdown专用渲染方法"""
         try:
             svg_path = self._render_abc_to_svg(abc_content, None)
+            svg_url = self._get_svg_url(svg_path=svg_path)
+            safe_alt = html.escape(f"ABC notation - {svg_path.stem}")
+            logger.info(f"SVG_stem: {svg_path.stem}")
             
             # 创建图像标签
-            return f'<div class="abc-container"><img src="{str(svg_path)}" alt=f"{svg_path.name} ABC Notation" class="abc-rendered"></div>'
-        
+            return (
+                f'<div class="abc-container" style="display: block; width: 100%; margin: 1.5rem 0; text-align: center;">'
+                f'<img src="{svg_url}" alt="{safe_alt}" class="abc-rendered" '
+                f'style="max-width: 100%; height: auto; display: inline-block; '
+                f'border: 1px solid #ddd; padding: 5px; background: white; '
+                f'margin: 0 auto;">'
+                f'</div>'
+            )
         except Exception as e:
-            logger.error(f"ABC processing error: {str(e)}")
-            return f'<div class="abc-error">Error rendering ABC: {str(e)}</div>'
+            logger.error(f"ABC processing error: {str(e)}", exc_info=True)
+            safe_error = html.escape(str(e))
+            safe_content = html.escape(abc_content[:100])
+            return (
+                f'<div class="abc-error" style="border: 2px dashed #dc3232; padding: 1rem; '
+                f'margin: 1rem 0; background: #fff8f8; color: #dc3232;">'
+                f'<p>❌ ABC Error: {safe_error}</p>'
+                f'<pre style="background: #f8f8f8; padding: 0.5rem; font-family: monospace; '
+                f'font-size: 0.9em; max-height: 100px; overflow: auto; margin-top: 0.5rem;">'
+                f'{safe_content}...</pre>'
+                f'</div>'
+            )
 
 
 class ABCDirective(Directive):
@@ -246,31 +305,70 @@ def on_source_read(app: Sphinx, docname: str, source: list):
         )
 
 
+# def copy_abc_assets(app, exception):
+#     """复制ABC扩展的静态资源文件"""
+#     if exception:
+#         logger.warning("Exception occurred, skipping ABC assets copy")
+#         return
+    
+#     # 获取源CSS文件路径
+#     src_dir = os.path.dirname(__file__)
+#     css_src = os.path.join(src_dir, "abc.css")
+    
+#     # 目标目录
+#     static_dir = os.path.join(app.outdir, "_static")
+    
+#     # 确保目标目录存在
+#     os.makedirs(static_dir, exist_ok=True)
+    
+#     # 检查源文件是否存在
+#     if os.path.isfile(css_src):
+#         try:
+#             copy_asset_file(css_src, static_dir)
+#             logger.info(f"Copied ABC CSS to {static_dir}")
+#         except Exception as e:
+#             logger.warning(f"Failed to copy ABC CSS: {str(e)}")
+#     else:
+#         logger.warning(f"ABC CSS file not found: {css_src}")
+
+
 def copy_abc_assets(app, exception):
-    """复制ABC扩展的静态资源文件"""
+    """确保所有ABC图像被复制到RTD可访问的位置"""
     if exception:
-        logger.warning("Exception occurred, skipping ABC assets copy")
         return
     
-    # 获取源CSS文件路径
-    src_dir = os.path.dirname(__file__)
-    css_src = os.path.join(src_dir, "abc.css")
+    # ✅ 修复2：RTD模式检测
+    on_rtd = os.environ.get('READTHEDOCS', 'False') == 'True'
     
-    # 目标目录
-    static_dir = os.path.join(app.outdir, "_static")
+    static_dir = Path(app.outdir) / '_static'
+    abc_images_dir = static_dir / '_abc_images'
     
-    # 确保目标目录存在
-    os.makedirs(static_dir, exist_ok=True)
+    if not abc_images_dir.exists():
+        return
     
-    # 检查源文件是否存在
-    if os.path.isfile(css_src):
-        try:
-            copy_asset_file(css_src, static_dir)
-            logger.info(f"Copied ABC CSS to {static_dir}")
-        except Exception as e:
-            logger.warning(f"Failed to copy ABC CSS: {str(e)}")
-    else:
-        logger.warning(f"ABC CSS file not found: {css_src}")
+    # ✅ 修复3：复制文件到多个位置（RTD兼容）
+    for svg_file in abc_images_dir.glob('*.svg'):
+        # 位置1：_static根目录（RTD最可靠）
+        root_dest = static_dir / svg_file.name
+        if not root_dest.exists():
+            shutil.copy2(svg_file, root_dest)
+            logger.info(f"Copied to root static: {root_dest}")
+        
+        # 位置2：保留原始位置
+        sub_dest = abc_images_dir / svg_file.name
+        if not sub_dest.exists():
+            shutil.copy2(svg_file, sub_dest)
+            logger.info(f"Copied to subdirectory: {sub_dest}")
+        
+        # ✅ 修复4：RTD特定：创建符号链接
+        if on_rtd:
+            link_path = static_dir / f"{svg_file.stem}.svg"
+            if not link_path.exists():
+                try:
+                    os.symlink(svg_file.absolute(), link_path.absolute())
+                    logger.info(f"Created symlink: {link_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to create symlink: {e}")
 
 
 def setup(app: Sphinx):
@@ -280,8 +378,8 @@ def setup(app: Sphinx):
     app.add_directive("abc", ABCDirective)
     # 添加共享配置
     app.add_config_value("abc_force_rebuild", False, "env")
-    # app.connect("builder-inited", lambda app: os.makedirs(
-    #     os.path.join(app.outdir, "_static/_abc_images"), exist_ok=True))
+    app.connect("builder-inited", lambda app: 
+        (Path(app.outdir) / "_static/_abc_images").mkdir(parents=True, exist_ok=True))
     
     app.connect("source-read", on_source_read)  # 设置Markdown处理
     app.connect("build-finished", copy_abc_assets)  # 复制CSS资源
