@@ -56,7 +56,7 @@ class ABCExtension:
         except Exception as e:
             logger.warning(f"Failed to add background to SVG: {e}")
     
-    def _render_abc_to_svg(self, abc_content: str, options: dict = None, format_type: str = "rst") -> Path:
+    def _render_abc_to_svg(self, abc_content: str, options: dict | None = None, format_type: str = "rst") -> Path:
         """解析ABC代码并使用abcm2ps渲染为SVG文件, 并返回SVG文件路径
 
         :param str abc_content: ABC代码内容
@@ -141,21 +141,15 @@ class ABCExtension:
         
         return svg_path
     
-    def _get_svg_url(self, svg_path: Path) -> str:
-        """获取SVG文件的URL路径"""
-        rel_path = svg_path.relative_to(self.static_dir)
-        return f"/_static/{rel_path.as_posix()}"
-    
-    def render_rst(self, abc_content: str, options: dict = None, caption: str = None) -> list:
+    def render_rst(self, abc_content: str, options: dict | None = None, caption: str | None  = None) -> list:
         """RST专用渲染方法"""
         try:
             svg_path = self._render_abc_to_svg(abc_content, options)
-            svg_url = self._get_svg_url(svg_path)
             
             # 创建HTML
             raw_html = (
                 f'<div class="abc-container">\n'
-                f'  <img src="{svg_url}" '
+                f'  <img src="{str(svg_path)}" '
                 f'class="abc-rendered" alt="abc music - {svg_path.name}" />\n'
                 f'</div>'
             )
@@ -180,10 +174,9 @@ class ABCExtension:
         """Markdown专用渲染方法"""
         try:
             svg_path = self._render_abc_to_svg(abc_content, None)
-            svg_url = self._get_svg_url(svg_path)
             
             # 创建图像标签
-            return f'<div class="abc-container"><img src="{svg_url}" alt=f"{svg_path.name} ABC Notation" class="abc-rendered"></div>'
+            return f'<div class="abc-container"><img src="{str(svg_path)}" alt=f"{svg_path.name} ABC Notation" class="abc-rendered"></div>'
         
         except Exception as e:
             logger.error(f"ABC processing error: {str(e)}")
